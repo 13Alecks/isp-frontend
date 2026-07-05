@@ -19,7 +19,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/config/*": ["./src/config/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/providers": ["./src/providers/index.ts"],
+      "@/providers/*": ["./src/providers/*"]
     }
   },
   "include": [
