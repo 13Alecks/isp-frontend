@@ -23,6 +23,7 @@
       "@/config/*": ["./src/config/*"],
       "@/shared/*": ["./src/shared/*"],
       "@/features/*": ["./src/features/*"],
+      "@/utils/*": ["./src/utils/*"],
       "@/providers": ["./src/providers/index.ts"],
       "@/providers/*": ["./src/providers/*"]
     }
