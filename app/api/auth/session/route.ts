@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getAdminAuth } from "@/config/firebase-admin";
 
 // 5 days in milliseconds — Firebase session cookies max out at 14 days.
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 5 * 1000;
@@ -16,6 +15,8 @@ export async function POST(request: Request) {
       );
     }
 
+    // Dynamic import so firebase-admin only loads when this route is called.
+    const { getAdminAuth } = await import("@/config/firebase-admin");
     const sessionCookie = await getAdminAuth().createSessionCookie(idToken, {
       expiresIn: SESSION_COOKIE_MAX_AGE,
     });

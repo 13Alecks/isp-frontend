@@ -14,7 +14,7 @@ let adminAuthInstance: Auth | null = null;
 function normalizePrivateKey(raw: string | undefined): string {
   if (!raw) {
     throw new Error(
-      "FIREBASE_PRIVATE_KEY is not set. Add it to .env.local — see .env.example."
+      "FIREBASE_PRIVATE_KEY is not set. Add it to your environment variables — see .env.example."
     );
   }
 
@@ -44,7 +44,13 @@ export function getAdminAuth(): Auth {
 
     if (!process.env.FIREBASE_CLIENT_EMAIL) {
       throw new Error(
-        "FIREBASE_CLIENT_EMAIL is not set. Add it to .env.local — see .env.example."
+        "FIREBASE_CLIENT_EMAIL is not set. Add it to your environment variables — see .env.example."
+      );
+    }
+
+    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+      throw new Error(
+        "NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set. Add it to your environment variables — see .env.example."
       );
     }
 
