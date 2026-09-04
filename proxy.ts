@@ -17,6 +17,7 @@ function isProtectedPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Skip non-protected paths early — no config matcher needed.
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
@@ -38,10 +39,3 @@ export async function proxy(request: NextRequest) {
     return res;
   }
 }
-
-export const config = {
-  matcher: [
-    // Run on all paths except static assets, API routes, and auth pages.
-    "/((?!api|_next/static|_next/image|favicon.ico|login|signup).*)",
-  ],
-};
