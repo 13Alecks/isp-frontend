@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminAuth } from "@/config/firebase-admin";
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -17,7 +16,7 @@ function isProtectedPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip non-protected paths early — no config matcher needed.
+  // Skip non-protected paths early — no firebase-admin import needed.
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
@@ -30,6 +29,8 @@ export async function proxy(request: NextRequest) {
   }
 
   try {
+    // Dynamic import so firebase-admin is only loaded for protected paths.
+    const { getAdminAuth } = await import("@/config/firebase-admin");
     await getAdminAuth().verifySessionCookie(sessionCookie, true);
     return NextResponse.next();
   } catch {
