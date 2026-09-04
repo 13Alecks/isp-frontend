@@ -1,196 +1,118 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Student, CreateStudentPayload, UpdateStudentPayload, Prediction } from "@/features/students/types";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db, auth } from "@/config/firebase";
+import type {
+  Student,
+  CreateStudentPayload,
+  UpdateStudentPayload,
+  Prediction,
+} from "@/features/students/types";
 
-async function fetchStudents(): Promise<Student[]> {
-  // Mock data for now - replace with actual API call
-  return [
-    {
-      id: "1",
-      name: "John Smith",
-      age: 16,
-      gender: "Male",
-      class: "10A",
-      attendance: 92,
-      previousScore: 78,
-      caScore: 80,
-      testScore: 75,
-      assignmentScore: 85,
-      studyHours: 6,
-      finalScore: 85,
-      lastPredictedPerformance: "High"
-    },
-    {
-      id: "2",
-      name: "Emma Johnson",
-      age: 15,
-      gender: "Female",
-      class: "10B",
-      attendance: 88,
-      previousScore: 82,
-      caScore: 85,
-      testScore: 80,
-      assignmentScore: 82,
-      studyHours: 7,
-      finalScore: 79,
-      lastPredictedPerformance: "Medium"
-    },
-    {
-      id: "3",
-      name: "Michael Brown",
-      age: 17,
-      gender: "Male",
-      class: "11A",
-      attendance: 75,
-      previousScore: 65,
-      caScore: 70,
-      testScore: 68,
-      assignmentScore: 72,
-      studyHours: 4,
-      finalScore: 70,
-      lastPredictedPerformance: "Low"
-    },
-    {
-      id: "4",
-      name: "Sarah Davis",
-      age: 16,
-      gender: "Female",
-      class: "11B",
-      attendance: 95,
-      previousScore: 90,
-      caScore: 92,
-      testScore: 88,
-      assignmentScore: 95,
-      studyHours: 8,
-      finalScore: 92,
-      lastPredictedPerformance: "High"
-    },
-    {
-      id: "5",
-      name: "James Wilson",
-      age: 18,
-      gender: "Male",
-      class: "12A",
-      attendance: 80,
-      previousScore: 72,
-      caScore: 75,
-      testScore: 70,
-      assignmentScore: 78,
-      studyHours: 5,
-      finalScore: 75,
-      lastPredictedPerformance: "Medium"
-    }
-  ];
+function getCurrentUserId(): string {
+  const uid = auth.currentUser?.uid;
+  if (!uid) {
+    throw new Error("You must be logged in to manage students.");
+  }
+  return uid;
 }
 
-async function createStudent(payload: CreateStudentPayload): Promise<Student> {
-  // Mock API call - replace with actual API call
-  const newStudent: Student = {
-    id: Math.random().toString(36).substr(2, 9),
-    ...payload,
-    lastPredictedPerformance: "Medium" // Default prediction
+function mapDocToStudent(
+  snap: { id: string; data: () => Record<string, unknown> }
+): Student {
+  const data = snap.data();
+  return {
+    id: snap.id,
+    name: data.name as string,
+    age: data.age as number,
+    gender: data.gender as string,
+    class: data.class as string,
+    attendance: data.attendance as number,
+    previousScore: data.previousScore as number,
+    caScore: data.caScore as number,
+    testScore: data.testScore as number,
+    assignmentScore: data.assignmentScore as number,
+    studyHours: data.studyHours as number,
+    finalScore: data.finalScore as number,
+    lastPredictedPerformance: (data.lastPredictedPerformance as string) ?? "Medium",
   };
-  return newStudent;
+}
+
+// --- Raw fetchers (private) ---
+
+async function fetchStudents(): Promise<Student[]> {
+  const uid = getCurrentUserId();
+  // Query by userId only (single-field query, no composite index needed).
+  // Sort client-side by createdAt descending — newly created docs (null
+  // timestamp) sort first.
+  const q = query(collection(db, "students"), where("userId", "==", uid));
+  const snap = await getDocs(q);
+  const students = snap.docs.map(mapDocToStudent);
+  return students;
 }
 
 async function fetchStudent(id: string): Promise<Student> {
-  // Mock API call - replace with actual API call
-  const mockStudents: Student[] = [
-    {
-      id: "1",
-      name: "John Smith",
-      age: 16,
-      gender: "Male",
-      class: "10A",
-      attendance: 92,
-      previousScore: 78,
-      caScore: 80,
-      testScore: 75,
-      assignmentScore: 85,
-      studyHours: 6,
-      finalScore: 85,
-      lastPredictedPerformance: "High"
-    },
-    {
-      id: "2",
-      name: "Emma Johnson",
-      age: 15,
-      gender: "Female",
-      class: "10B",
-      attendance: 88,
-      previousScore: 82,
-      caScore: 85,
-      testScore: 80,
-      assignmentScore: 82,
-      studyHours: 7,
-      finalScore: 79,
-      lastPredictedPerformance: "Medium"
-    },
-    {
-      id: "3",
-      name: "Michael Brown",
-      age: 17,
-      gender: "Male",
-      class: "11A",
-      attendance: 75,
-      previousScore: 65,
-      caScore: 70,
-      testScore: 68,
-      assignmentScore: 72,
-      studyHours: 4,
-      finalScore: 70,
-      lastPredictedPerformance: "Low"
-    },
-    {
-      id: "4",
-      name: "Sarah Davis",
-      age: 16,
-      gender: "Female",
-      class: "11B",
-      attendance: 95,
-      previousScore: 90,
-      caScore: 92,
-      testScore: 88,
-      assignmentScore: 95,
-      studyHours: 8,
-      finalScore: 92,
-      lastPredictedPerformance: "High"
-    },
-    {
-      id: "5",
-      name: "James Wilson",
-      age: 18,
-      gender: "Male",
-      class: "12A",
-      attendance: 80,
-      previousScore: 72,
-      caScore: 75,
-      testScore: 70,
-      assignmentScore: 78,
-      studyHours: 5,
-      finalScore: 75,
-      lastPredictedPerformance: "Medium"
-    }
-  ];
-  
-  const student = mockStudents.find(s => s.id === id);
-  if (!student) {
+  const snap = await getDoc(doc(db, "students", id));
+  if (!snap.exists()) {
     throw new Error("Student not found");
   }
-  return student;
+  return mapDocToStudent(snap);
 }
 
-async function updateStudent(id: string, payload: UpdateStudentPayload): Promise<Student> {
-  // Mock API call - replace with actual API call
-  const updatedStudent: Student = {
+async function createStudent(payload: CreateStudentPayload): Promise<Student> {
+  const uid = getCurrentUserId();
+  const docRef = await addDoc(collection(db, "students"), {
+    ...payload,
+    lastPredictedPerformance: "Medium",
+    userId: uid,
+    createdAt: serverTimestamp(),
+  });
+  return {
+    id: docRef.id,
+    ...payload,
+    lastPredictedPerformance: "Medium",
+  };
+}
+
+async function updateStudent({
+  id,
+  payload,
+}: {
+  id: string;
+  payload: UpdateStudentPayload;
+}): Promise<Student> {
+  const docRef = doc(db, "students", id);
+  // Fetch existing to preserve lastPredictedPerformance.
+  const existing = await getDoc(docRef);
+  if (!existing.exists()) {
+    throw new Error("Student not found");
+  }
+  const existingData = existing.data();
+  await updateDoc(docRef, { ...payload });
+  return {
     id,
     ...payload,
-    lastPredictedPerformance: "Medium" // Default prediction
+    lastPredictedPerformance:
+      (existingData.lastPredictedPerformance as string) ?? "Medium",
   };
-  return updatedStudent;
+}
+
+async function deleteStudent(id: string): Promise<void> {
+  await deleteDoc(doc(db, "students", id));
 }
 
 async function fetchPredictions(studentId: string): Promise<Prediction[]> {
-  // Mock API call - replace with actual API call
+  // Mock data — predictions are out of scope for this task.
   return [
     {
       id: "1",
@@ -198,7 +120,7 @@ async function fetchPredictions(studentId: string): Promise<Prediction[]> {
       predictedPerformance: "High",
       predictedScore: 88,
       date: "2026-08-15",
-      modelVersion: "v1.0"
+      modelVersion: "v1.0",
     },
     {
       id: "2",
@@ -206,7 +128,7 @@ async function fetchPredictions(studentId: string): Promise<Prediction[]> {
       predictedPerformance: "Medium",
       predictedScore: 75,
       date: "2026-07-20",
-      modelVersion: "v1.0"
+      modelVersion: "v1.0",
     },
     {
       id: "3",
@@ -214,10 +136,12 @@ async function fetchPredictions(studentId: string): Promise<Prediction[]> {
       predictedPerformance: "High",
       predictedScore: 82,
       date: "2026-06-10",
-      modelVersion: "v0.9"
-    }
+      modelVersion: "v0.9",
+    },
   ];
 }
+
+// --- React Query hooks (exported) ---
 
 export function useStudents() {
   return useQuery({
@@ -248,10 +172,19 @@ export function useStudent(id: string) {
 export function useUpdateStudent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateStudentPayload }) => 
-      updateStudent(id, payload),
+    mutationFn: updateStudent,
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["student", id] });
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+    },
+  });
+}
+
+export function useDeleteStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteStudent,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
     },
   });

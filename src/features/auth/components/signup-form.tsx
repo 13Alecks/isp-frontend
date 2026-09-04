@@ -4,20 +4,17 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@/shared/components/ui";
-import { useLogin, useCreateSession } from "@/features/auth/api";
-import type { LoginPayload } from "@/features/auth/types";
+import { useSignup, useCreateSession } from "@/features/auth/api";
+import type { SignupPayload } from "@/features/auth/types";
 
-interface LoginFormProps {
-  onSuccess?: () => void;
-}
-
-export function LoginForm({ onSuccess }: LoginFormProps) {
+export function SignupForm() {
   const router = useRouter();
-  const login = useLogin();
+  const signup = useSignup();
   const createSession = useCreateSession();
-  const [formData, setFormData] = React.useState<LoginPayload>({
+  const [formData, setFormData] = React.useState<SignupPayload>({
     email: "",
     password: "",
+    confirmPassword: "",
   });
   const [error, setError] = React.useState<string>("");
 
@@ -25,18 +22,18 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     e.preventDefault();
     setError("");
 
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     try {
-      const user = await login.mutateAsync(formData);
+      const user = await signup.mutateAsync(formData);
       const idToken = await user.getIdToken();
       await createSession.mutateAsync(idToken);
-
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push("/dashboard");
-      }
+      router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred during login");
+      setError(err instanceof Error ? err.message : "An error occurred during signup");
     }
   };
 
@@ -47,13 +44,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     }));
   };
 
-  const isPending = login.isPending || createSession.isPending;
+  const isPending = signup.isPending || createSession.isPending;
 
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Login</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardTitle>Create account</CardTitle>
+        <CardDescription>Sign up with your email and password</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,6 +78,21 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               onChange={handleChange}
               required
               disabled={isPending}
+              minLength={6}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              placeholder="••••••••"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              disabled={isPending}
+              minLength={6}
             />
           </div>
           {error && (
@@ -89,14 +101,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             </div>
           )}
           <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Logging in..." : "Login"}
+            {isPending ? "Creating account..." : "Sign up"}
           </Button>
         </form>
 
         <div className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-medium text-primary hover:underline">
-            Sign up
+          Already have an account?{" "}
+          <Link href="/login" className="font-medium text-primary hover:underline">
+            Login
           </Link>
         </div>
       </CardContent>

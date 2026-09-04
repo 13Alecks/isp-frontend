@@ -1,19 +1,5 @@
-import { Button } from "@/shared/components/ui";
-import Link from "next/link";
-import { CreateStudentForm } from "@/features/students/components";
+import { NewStudentPage } from "@/features/students/pages";
 
-export default function NewStudentPage() {
-  return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <Link href="/students">
-            <Button variant="outline">Back to Students</Button>
-          </Link>
-        </div>
-        
-        <CreateStudentForm />
-      </div>
-    </div>
-  );
+export default function Page() {
+  return <NewStudentPage />;
 }
