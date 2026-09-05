@@ -12,23 +12,53 @@ interface ServiceAccountJson {
 }
 
 /**
+ * Strip surrounding double quotes and whitespace from an env var value.
+ * Vercel's UI stores the raw input — if you paste "value" with quotes,
+ * the stored value includes the quote characters.
+ */
+function cleanEnvValue(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  let cleaned = value.trim();
+  // Strip surrounding double or single quotes.
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  return cleaned || undefined;
+}
+
+/**
+ * Normalize a Firebase private key into a valid PEM string.
+ * Handles: literal \n escapes, real newlines, and surrounding quotes.
+ */
+function normalizePrivateKey(raw: string | undefined): string {
+  const cleaned = cleanEnvValue(raw);
+  if (!cleaned) {
+    throw new Error(
+      "FIREBASE_PRIVATE_KEY is not set or empty. Add it to your environment variables."
+    );
+  }
+  // If the value already contains real newlines, use it as-is.
+  if (cleaned.includes("\n")) {
+    return cleaned;
+  }
+  // Otherwise convert literal "\n" escape sequences into real newlines.
+  return cleaned.replace(/\\n/g, "\n");
+}
+
+/**
  * Try to locate the Firebase service account JSON file in the project root.
- * The file is downloaded from Firebase Console → Project Settings → Service
- * accounts → Generate new private key. It is gitignored and must never be
- * committed.
  */
 function findServiceAccountFile(): string | null {
-  // Check common locations — project root and src/config/.
   const candidates = [
-    // Exact known filename
     "intelligent-sp-firebase-adminsdk-fbsvc-2dbb02842c.json",
-    // Generic patterns
     "firebase-service-account.json",
     "service-account.json",
   ];
 
   for (const candidate of candidates) {
-    // Try project root
     const rootPath = path.join(process.cwd(), candidate);
     if (fs.existsSync(rootPath)) {
       return rootPath;
@@ -64,19 +94,13 @@ export function getAdminAuth(): Auth {
 
     // 2. Fall back to environment variables (for Vercel / production).
     if (!projectId) {
-      projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      projectId = cleanEnvValue(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
     }
     if (!clientEmail) {
-      clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+      clientEmail = cleanEnvValue(process.env.FIREBASE_CLIENT_EMAIL);
     }
     if (!privateKey) {
-      const rawKey = process.env.FIREBASE_PRIVATE_KEY;
-      if (rawKey) {
-        // Normalize \n escape sequences into real newlines.
-        privateKey = rawKey.includes("\n")
-          ? rawKey.trim()
-          : rawKey.trim().replace(/\\n/g, "\n");
-      }
+      privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
     }
 
     if (!projectId) {
@@ -87,11 +111,6 @@ export function getAdminAuth(): Auth {
     if (!clientEmail) {
       throw new Error(
         "Firebase client email not found. Set FIREBASE_CLIENT_EMAIL or add a service account JSON file."
-      );
-    }
-    if (!privateKey) {
-      throw new Error(
-        "Firebase private key not found. Set FIREBASE_PRIVATE_KEY or add a service account JSON file."
       );
     }
 
