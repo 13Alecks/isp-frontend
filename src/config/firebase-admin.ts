@@ -1,38 +1,46 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
+import fs from "fs";
+import path from "path";
 
 let adminAuthInstance: Auth | null = null;
 
-/**
- * Normalize a Firebase private key from a .env value into a valid PEM string.
- * Handles three common formats:
- *   1. Literal `\n` escape sequences (copied directly from the JSON file):
- *        "-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
- *   2. Already-real newlines (some .env parsers unescape `\n` in quotes).
- *   3. Real multi-line value (wrapped in quotes across several lines).
- */
-function normalizePrivateKey(raw: string | undefined): string {
-  if (!raw) {
-    throw new Error(
-      "FIREBASE_PRIVATE_KEY is not set. Add it to your environment variables — see .env.example."
-    );
-  }
-
-  const trimmed = raw.trim();
-
-  // If the value already contains real newlines, use it as-is.
-  if (trimmed.includes("\n")) {
-    return trimmed;
-  }
-
-  // Otherwise convert literal "\n" escape sequences into real newlines.
-  return trimmed.replace(/\\n/g, "\n");
+interface ServiceAccountJson {
+  project_id?: string;
+  private_key?: string;
+  client_email?: string;
 }
 
 /**
- * Lazily initialize the Firebase Admin SDK. Initialization is deferred to the
- * first call so that route handlers / proxy.ts don't trigger credential parsing
- * at build time (Next.js evaluates route modules during `next build`).
+ * Try to locate the Firebase service account JSON file in the project root.
+ * The file is downloaded from Firebase Console → Project Settings → Service
+ * accounts → Generate new private key. It is gitignored and must never be
+ * committed.
+ */
+function findServiceAccountFile(): string | null {
+  // Check common locations — project root and src/config/.
+  const candidates = [
+    // Exact known filename
+    "intelligent-sp-firebase-adminsdk-fbsvc-2dbb02842c.json",
+    // Generic patterns
+    "firebase-service-account.json",
+    "service-account.json",
+  ];
+
+  for (const candidate of candidates) {
+    // Try project root
+    const rootPath = path.join(process.cwd(), candidate);
+    if (fs.existsSync(rootPath)) {
+      return rootPath;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Lazily initialize the Firebase Admin SDK. Tries the service account JSON
+ * file first (local dev), then falls back to environment variables (Vercel).
  */
 export function getAdminAuth(): Auth {
   if (adminAuthInstance) {
@@ -40,24 +48,57 @@ export function getAdminAuth(): Auth {
   }
 
   if (!getApps().length) {
-    const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+    let projectId: string | undefined;
+    let clientEmail: string | undefined;
+    let privateKey: string | undefined;
 
-    if (!process.env.FIREBASE_CLIENT_EMAIL) {
-      throw new Error(
-        "FIREBASE_CLIENT_EMAIL is not set. Add it to your environment variables — see .env.example."
-      );
+    // 1. Try reading from the service account JSON file.
+    const serviceAccountPath = findServiceAccountFile();
+    if (serviceAccountPath) {
+      const raw = fs.readFileSync(serviceAccountPath, "utf-8");
+      const json: ServiceAccountJson = JSON.parse(raw);
+      projectId = json.project_id;
+      clientEmail = json.client_email;
+      privateKey = json.private_key;
     }
 
-    if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+    // 2. Fall back to environment variables (for Vercel / production).
+    if (!projectId) {
+      projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    }
+    if (!clientEmail) {
+      clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    }
+    if (!privateKey) {
+      const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+      if (rawKey) {
+        // Normalize \n escape sequences into real newlines.
+        privateKey = rawKey.includes("\n")
+          ? rawKey.trim()
+          : rawKey.trim().replace(/\\n/g, "\n");
+      }
+    }
+
+    if (!projectId) {
       throw new Error(
-        "NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set. Add it to your environment variables — see .env.example."
+        "Firebase project ID not found. Set NEXT_PUBLIC_FIREBASE_PROJECT_ID or add a service account JSON file."
+      );
+    }
+    if (!clientEmail) {
+      throw new Error(
+        "Firebase client email not found. Set FIREBASE_CLIENT_EMAIL or add a service account JSON file."
+      );
+    }
+    if (!privateKey) {
+      throw new Error(
+        "Firebase private key not found. Set FIREBASE_PRIVATE_KEY or add a service account JSON file."
       );
     }
 
     initializeApp({
       credential: cert({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        projectId,
+        clientEmail,
         privateKey,
       }),
     });
