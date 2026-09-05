@@ -13,10 +13,32 @@ function isProtectedPath(pathname: string): boolean {
   );
 }
 
+/**
+ * Verify a Firebase ID token via the REST API.
+ * No firebase-admin SDK needed — works on Vercel serverless and local dev.
+ */
+async function verifyToken(idToken: string): Promise<boolean> {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  if (!apiKey) return false;
+
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip non-protected paths early — no firebase-admin import needed.
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
@@ -28,15 +50,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  try {
-    // Dynamic import so firebase-admin is only loaded for protected paths.
-    const { getAdminAuth } = await import("@/config/firebase-admin");
-    await getAdminAuth().verifySessionCookie(sessionCookie, true);
-    return NextResponse.next();
-  } catch {
+  const isValid = await verifyToken(sessionCookie);
+
+  if (!isValid) {
     const loginUrl = new URL("/login", request.url);
     const res = NextResponse.redirect(loginUrl);
     res.cookies.delete("session");
     return res;
   }
+
+  return NextResponse.next();
 }
