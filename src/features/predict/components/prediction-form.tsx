@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Inpu
 import { usePredict } from "@/features/predict/api";
 import { useStudents } from "@/features/students/api";
 import type { PredictionPayload, PredictionResponse } from "@/features/predict/types";
-import type { Student } from "@/features/students/types";
 
 export function PredictionForm() {
   const predict = usePredict();
@@ -245,6 +244,9 @@ export function PredictionForm() {
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
                 Confidence: {(predictionResult.confidence * 100).toFixed(1)}%
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Model: {predictionResult.modelUsed}
               </div>
             </div>
           )}

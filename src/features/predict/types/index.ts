@@ -15,6 +15,7 @@ export interface PredictionResponse {
   performance: PredictionPerformance;
   finalScore: number;
   confidence: number;
+  modelUsed: string;
   features: {
     attendance: number;
     previousScore: number;

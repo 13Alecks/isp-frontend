@@ -1,39 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
+import { predict } from "@/features/predict/ml";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { finalScore, ...features } = body;
-
-    // Determine performance based on final score
-    let performance: "High" | "Average" | "Low";
-    if (finalScore >= 70) {
-      performance = "High";
-    } else if (finalScore >= 50) {
-      performance = "Average";
-    } else {
-      performance = "Low";
-    }
-
-    // Mock confidence calculation (in real app, this would come from ML model)
-    const confidence = 0.85 + (Math.random() * 0.1); // 0.85-0.95
-
-    const response = {
-      performance,
+    const {
+      attendance,
+      previousScore,
+      caScore,
+      testScore,
+      assignmentScore,
+      studyHours,
       finalScore,
-      confidence,
-      features: {
-        attendance: features.attendance || 0,
-        previousScore: features.previousScore || 0,
-        caScore: features.caScore || 0,
-        testScore: features.testScore || 0,
-        assignmentScore: features.assignmentScore || 0,
-        studyHours: features.studyHours || 0,
-      },
-    };
+    } = body;
 
-    return NextResponse.json(response);
-  } catch (error) {
+    // Run the ML prediction using the best trained model.
+    const result = predict({
+      attendance: Number(attendance) || 0,
+      previousScore: Number(previousScore) || 0,
+      caScore: Number(caScore) || 0,
+      testScore: Number(testScore) || 0,
+      assignmentScore: Number(assignmentScore) || 0,
+      studyHours: Number(studyHours) || 0,
+      finalScore: Number(finalScore) || 0,
+    });
+
+    return NextResponse.json({
+      performance: result.performance,
+      finalScore: Number(finalScore) || 0,
+      confidence: result.confidence,
+      modelUsed: result.modelUsed,
+      features: {
+        attendance: Number(attendance) || 0,
+        previousScore: Number(previousScore) || 0,
+        caScore: Number(caScore) || 0,
+        testScore: Number(testScore) || 0,
+        assignmentScore: Number(assignmentScore) || 0,
+        studyHours: Number(studyHours) || 0,
+      },
+    });
+  } catch {
     return NextResponse.json(
       { error: "Invalid request body" },
       { status: 400 }
