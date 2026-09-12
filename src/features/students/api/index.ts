@@ -197,3 +197,17 @@ export function usePredictions(studentId: string) {
     enabled: !!studentId,
   });
 }
+
+// --- Seeder ---
+
+import { seedStudents } from "./seed";
+
+export function useSeedStudents() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: seedStudents,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+    },
+  });
+}
