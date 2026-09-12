@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { Button, Card, CardContent, Input, Label } from "@/shared/components/ui";
@@ -13,7 +12,6 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
-  const router = useRouter();
   const login = useLogin();
   const createSession = useCreateSession();
   const [formData, setFormData] = React.useState<LoginPayload>({
@@ -35,7 +33,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       if (onSuccess) {
         onSuccess();
       } else {
-        router.push("/dashboard");
+        // Full page navigation ensures the proxy runs with the new session cookie.
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during login");

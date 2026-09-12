@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, AlertCircle, Check } from "lucide-react";
 import { Button, Card, CardContent, Input, Label } from "@/shared/components/ui";
@@ -9,7 +8,6 @@ import { useSignup, useCreateSession } from "@/features/auth/api";
 import type { SignupPayload } from "@/features/auth/types";
 
 export function SignupForm() {
-  const router = useRouter();
   const signup = useSignup();
   const createSession = useCreateSession();
   const [formData, setFormData] = React.useState<SignupPayload>({
@@ -40,7 +38,8 @@ export function SignupForm() {
       const user = await signup.mutateAsync(formData);
       const idToken = await user.getIdToken();
       await createSession.mutateAsync(idToken);
-      router.push("/dashboard");
+      // Full page navigation ensures the proxy runs with the new session cookie.
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred during signup");
     }
